@@ -1,26 +1,36 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { addTask, removeTask } from "../redux/todoSlice";
+import { addTask, removeTask, updateTask } from "../redux/todoSlice";
+import { clearAllTasks } from "../redux/todoSlice"; // Import clearAllTasks action
 
 const TodoList = () => {
   const tasks = useSelector((state) => state.todo.tasks);
   const dispatch = useDispatch();
   const [task, setTask] = useState("");
   const [selectedTasks, setSelectedTasks] = useState([]);
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [selectAll, setSelectAll] = useState(false);
+
+  useEffect(() => {
+    setSelectAll(selectedTasks.length === tasks.length && tasks.length > 0);
+  }, [selectedTasks, tasks]);
 
   const handleAddTask = () => {
     if (task.trim()) {
-      dispatch(addTask({ id: Date.now(), text: task }));
+      const newTask = { id: Date.now(), text: task };
+      dispatch(addTask(newTask));
       setTask("");
+      setSelectedTasks((prevSelected) => [...prevSelected, newTask.id]);
     }
   };
 
   const handleToggleTask = (taskId) => {
-    if (selectedTasks.includes(taskId)) {
-      setSelectedTasks(selectedTasks.filter((id) => id !== taskId));
-    } else {
-      setSelectedTasks([...selectedTasks, taskId]);
-    }
+    setSelectedTasks((prevSelected) =>
+      prevSelected.includes(taskId)
+        ? prevSelected.filter((id) => id !== taskId)
+        : [...prevSelected, taskId]
+    );
   };
 
   const handleDeleteSelected = () => {
@@ -28,12 +38,30 @@ const TodoList = () => {
     setSelectedTasks([]);
   };
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedTasks(tasks.map((task) => task.id));
-    } else {
+  const handleSelectAll = () => {
+    if (selectAll) {
       setSelectedTasks([]);
+    } else {
+      setSelectedTasks(tasks.map((task) => task.id));
     }
+  };
+
+  const handleEditTask = (task) => {
+    setEditingTaskId(task.id);
+    setEditingText(task.text);
+  };
+
+  const handleUpdateTask = (taskId) => {
+    if (editingText.trim()) {
+      dispatch(updateTask({ id: taskId, text: editingText }));
+      setEditingTaskId(null);
+      setEditingText("");
+    }
+  };
+
+  const handleDeleteAll = () => {
+    dispatch(clearAllTasks()); // Dispatch action to remove all tasks
+    setSelectedTasks([]);
   };
 
   return (
@@ -52,28 +80,27 @@ const TodoList = () => {
             Add
           </button>
         </div>
-        
-        {tasks.length > 0 && (
-          <div className="d-flex justify-content-between align-items-center mt-3">
-            <div>
-              <input
-                type="checkbox"
-                className="form-check-input me-2"
-                onChange={handleSelectAll}
-                checked={selectedTasks.length === tasks.length && tasks.length > 0}
-              />
-              <label>Select All</label>
-            </div>
-            <button
-              className="btn btn-danger btn-sm"
-              onClick={handleDeleteSelected}
-              disabled={selectedTasks.length === 0}
-            >
-              Delete Selected
-            </button>
+        <div className="mt-3 d-flex justify-content-between align-items-center">
+          <div>
+            <input
+              type="checkbox"
+              className="form-check-input me-2"
+              onChange={handleSelectAll}
+              checked={selectAll}
+            />
+            <label>Select All</label>
           </div>
+          {tasks.length > 0 && (
+            <button className="btn btn-danger btn-sm" onClick={handleDeleteAll}>
+              Delete All
+            </button>
+          )}
+        </div>
+        {selectedTasks.length > 0 && (
+          <button className="btn btn-warning btn-sm mt-2" onClick={handleDeleteSelected}>
+            Delete Selected
+          </button>
         )}
-
         <ul className="list-group mt-3">
           {tasks.map((t) => (
             <li key={t.id} className="list-group-item d-flex justify-content-between align-items-center">
@@ -84,11 +111,27 @@ const TodoList = () => {
                   onChange={() => handleToggleTask(t.id)}
                   checked={selectedTasks.includes(t.id)}
                 />
-                {t.text}
+                {editingTaskId === t.id ? (
+                  <>
+                    <input
+                      type="text"
+                      className="form-control d-inline w-50 me-2"
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      autoFocus
+                    />
+                    <button className="btn btn-success btn-sm" onClick={() => handleUpdateTask(t.id)}>✔</button>
+                  </>
+                ) : (
+                  <span>{t.text}</span>
+                )}
               </div>
-              <button className="btn btn-danger btn-sm" onClick={() => dispatch(removeTask(t.id))}>
-                X
-              </button>
+              <div>
+                {editingTaskId !== t.id && (
+                  <button className="btn btn-warning btn-sm me-2" onClick={() => handleEditTask(t)}>✎</button>
+                )}
+                <button className="btn btn-danger btn-sm" onClick={() => dispatch(removeTask(t.id))}>X</button>
+              </div>
             </li>
           ))}
         </ul>
